@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ $# -ne 1 || ! -d "$1" ]]; then
+  printf 'usage: ./install /path/to/obsidian-vault\n' >&2
+  exit 2
+fi
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+vault_root="$(realpath "$1")"
+data_root="${XDG_DATA_HOME:-$HOME/.local/share}/obsbeam"
+config_root="${XDG_CONFIG_HOME:-$HOME/.config}/obsbeam"
+bin_root="${OBSBEAM_BIN_HOME:-$HOME/.local/bin}"
+completion_root="${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions"
+
+install -d "$data_root/_slide_tools" "$config_root" "$bin_root" "$completion_root"
+install -m 0644 "$repo_root/_quarto.yml" "$data_root/_quarto.yml"
+install -m 0644 "$repo_root/_slide_tools/"* "$data_root/_slide_tools/"
+install -m 0755 "$repo_root/slide" "$bin_root/slide"
+install -m 0644 "$repo_root/completions/slide.bash" "$completion_root/slide"
+printf '%s\n' "$vault_root" > "$config_root/vault"
+
+printf 'installed obsbeam for %s\n' "$vault_root"
+printf 'open a new terminal, then run: slide note.md\n'

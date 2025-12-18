@@ -1,0 +1,30 @@
+project:
+  type: default
+  output-dir: _slides
+
+from: markdown+wikilinks_title_after_pipe+lists_without_preceding_blankline
+
+format:
+  beamer:
+    pdf-engine: lualatex
+    aspectratio: 169
+    classoption:
+      - c
+    slide-level: 2
+    navigation: empty
+    section-titles: false
+    incremental: false
+    keep-tex: false
+    include-in-header:
+      - _slide_tools/minimalist-beamer.tex
+    highlight-style: github
+    code-overflow: wrap
+    fig-align: center
+
+filters:
+  - _slide_tools/obsidian-embeds.lua
+
+obsidian-attachments:
+  - attachments
+  - assets
+  - images

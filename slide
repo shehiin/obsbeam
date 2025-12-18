@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+data_root="${OBSBEAM_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/obsbeam}"
+config_file="${XDG_CONFIG_HOME:-$HOME/.config}/obsbeam/vault"
+vault_root="${OBSBEAM_VAULT:-}"
+
+usage() {
+  printf 'usage: slide note[.md] [output-name.pdf]\n' >&2
+  exit 2
+}
+
+if [[ -z "$vault_root" && -f "$config_file" ]]; then
+  IFS= read -r vault_root < "$config_file"
+fi
+
+[[ -n "$vault_root" ]] || {
+  printf 'error: no vault configured. run the obsbeam installer first.\n' >&2
+  exit 1
+}
+[[ -d "$vault_root" ]] || {
+  printf 'error: configured vault does not exist: %s\n' "$vault_root" >&2
+  exit 1
+}
+vault_root="$(realpath "$vault_root")"
+
+[[ $# -ge 1 ]] || usage
+arguments=("$@")
+last_index=$(( ${#arguments[@]} - 1 ))
+last_argument=${arguments[$last_index]}
+output_name=
+
+if (( ${#arguments[@]} > 1 )) && [[ $last_argument == *.pdf ]]; then
+  output_name=$last_argument
+  unset 'arguments[last_index]'
+fi
+
+requested="${arguments[*]}"
+requested=${requested#obs/}
+
+resolve_note() {
+  local request="$1"
+  local candidate search_name
+  local -a candidates=() matches=()
+
+  if [[ "$request" == /* ]]; then
+    candidates+=("$request")
+    case "$request" in
+      *.md|*.qmd) ;;
+      *) candidates+=("$request.md" "$request.qmd") ;;
+    esac
+  else
+    candidates+=("$PWD/$request" "$vault_root/$request")
+    case "$request" in
+      *.md|*.qmd) ;;
+      *)
+        candidates+=(
+          "$PWD/$request.md"
+          "$PWD/$request.qmd"
+          "$vault_root/$request.md"
+          "$vault_root/$request.qmd"
+        )
+        ;;
+    esac
+  fi
+
+  for candidate in "${candidates[@]}"; do
+    if [[ -f "$candidate" ]]; then
+      realpath "$candidate"
+      return 0
+    fi
+  done
+
+  if [[ "$request" != */* ]]; then
+    search_name=$request
+    if [[ "$search_name" == *.md || "$search_name" == *.qmd ]]; then
+      mapfile -d '' matches < <(
+        find "$vault_root" -type f -name "$search_name" \
+          -not -path "$vault_root/.obsidian/*" \
+          -not -path "$vault_root/.trash/*" \
+          -not -path "$vault_root/_slides/*" -print0
+      )
+    else
+      mapfile -d '' matches < <(
+        find "$vault_root" -type f \
+          \( -name "$search_name.md" -o -name "$search_name.qmd" \) \
+          -not -path "$vault_root/.obsidian/*" \
+          -not -path "$vault_root/.trash/*" \
+          -not -path "$vault_root/_slides/*" -print0
+      )
+    fi
+
+    if [[ ${#matches[@]} -eq 1 ]]; then
+      realpath "${matches[0]}"
+      return 0
+    fi
+    if [[ ${#matches[@]} -gt 1 ]]; then
+      printf 'error: more than one note matches %s:\n' "$request" >&2
+      printf '  %s\n' "${matches[@]#"$vault_root"/}" >&2
+      return 1
+    fi
+  fi
+
+  printf 'error: note not found in vault: %s\n' "$request" >&2
+  return 1
+}
+
+input="$(resolve_note "$requested")"
+case "$input" in
+  "$vault_root"/*) ;;
+  *) printf 'error: input must be inside the configured vault.\n' >&2; exit 1 ;;
+esac
+
+for required in \
+  "$data_root/_quarto.yml" \
+  "$data_root/_slide_tools/minimalist-beamer.tex" \
+  "$data_root/_slide_tools/obsidian-embeds.lua" \
+  "$data_root/_slide_tools/prepare-obsidian.awk" \
+  "$data_root/_slide_tools/rebalance-orphans.awk" \
+  "$data_root/_slide_tools/align-auto-slides.awk"; do
+  [[ -f "$required" ]] || {
+    printf 'error: obsbeam installation is incomplete: %s\n' "$required" >&2
+    exit 1
+  }
+done
+
+quarto_bin="${QUARTO_BIN:-$(command -v quarto || true)}"
+[[ -n "$quarto_bin" && -x "$quarto_bin" ]] || {
+  printf 'error: quarto is not installed.\n' >&2
+  exit 1
+}
+command -v lualatex >/dev/null || {
+  printf 'error: lualatex is not installed.\n' >&2
+  exit 1
+}
+
+stem="$(basename "${input%.*}")"
+output_name=${output_name:-$stem.pdf}
+[[ "$output_name" == *.pdf ]] || output_name="$output_name.pdf"
+[[ "$output_name" != */* ]] || {
+  printf 'error: output name must be a filename.\n' >&2
+  exit 1
+}
+
+stage="$(mktemp -d "${TMPDIR:-/tmp}/obsbeam.XXXXXX")"
+cleanup() { rm -rf -- "$stage"; }
+trap cleanup EXIT INT TERM
+
+mkdir -p "$stage/_slide_tools" "$vault_root/_slides"
+cp "$data_root/_quarto.yml" "$stage/_quarto.yml"
+cp "$data_root/_slide_tools/"* "$stage/_slide_tools/"
+awk -f "$data_root/_slide_tools/prepare-obsidian.awk" "$input" "$input" | \
+  awk -f "$data_root/_slide_tools/rebalance-orphans.awk" | \
+  awk -f "$data_root/_slide_tools/align-auto-slides.awk" > "$stage/deck.qmd"
+ln -s "$vault_root" "$stage/vault"
+
+relative_input=${input#"$vault_root"/}
+relative_source_dir=$(dirname "$relative_input")
+
+printf 'rendering %s with lualatex...\n' "$relative_input"
+(
+  cd "$stage"
+  OBSIDIAN_VAULT_ROOT=vault \
+  OBSIDIAN_SOURCE_DIR="vault/$relative_source_dir" \
+    "$quarto_bin" render deck.qmd --output "$output_name"
+)
+
+built_pdf="$stage/_slides/$output_name"
+[[ -f "$built_pdf" ]] || built_pdf="$stage/$output_name"
+[[ -f "$built_pdf" ]] || {
+  printf 'error: quarto did not create %s\n' "$output_name" >&2
+  exit 1
+}
+
+install -m 0644 "$built_pdf" "$vault_root/_slides/$output_name"
+printf 'created %s\n' "$vault_root/_slides/$output_name"

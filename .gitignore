@@ -1,0 +1,10 @@
+_slides/
+*.aux
+*.log
+*.nav
+*.snm
+*.toc
+*.out
+*.tex
+*.fls
+*.fdb_latexmk
