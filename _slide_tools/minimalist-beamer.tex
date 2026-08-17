@@ -1,0 +1,175 @@
+% Minimalist light Beamer styling for academic and engineering slides.
+% Loaded by _quarto.yml; individual notes do not need raw LaTeX.
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{microtype}
+\usepackage{etoolbox}
+\usepackage{graphicx}
+\usepackage{fvextra}
+\usepackage{tikz}
+\usepackage{xcolor}
+
+\defaultfontfeatures{Ligatures=TeX, Scale=MatchLowercase}
+\setmainfont{Libertinus Serif}
+\setsansfont{Libertinus Serif}
+\setmonofont[Scale=0.88]{Libertinus Mono}
+\setmathfont{Libertinus Math}
+\usefonttheme{serif}
+
+\definecolor{MinimalInk}{HTML}{202124}
+\definecolor{MinimalMuted}{HTML}{70757A}
+\definecolor{MinimalFaint}{HTML}{A7AAAD}
+\definecolor{MinimalLink}{HTML}{426B86}
+\definecolor{MinimalCode}{HTML}{F5F6F7}
+\definecolor{MinimalRule}{HTML}{E5E7E9}
+
+\setbeamercolor{background canvas}{bg=white}
+\setbeamercolor{normal text}{fg=MinimalInk,bg=white}
+\setbeamercolor{structure}{fg=MinimalInk}
+\setbeamercolor{title}{fg=MinimalInk}
+\setbeamercolor{subtitle}{fg=MinimalInk}
+\setbeamercolor{author}{fg=MinimalInk}
+\setbeamercolor{institute}{fg=MinimalInk}
+\setbeamercolor{date}{fg=MinimalInk}
+\setbeamercolor{frametitle}{fg=MinimalInk,bg=white}
+\setbeamercolor{page number in head/foot}{fg=MinimalFaint,bg=white}
+\setbeamercolor{block title}{fg=MinimalInk,bg=white}
+\setbeamercolor{block body}{fg=MinimalInk,bg=white}
+\setbeamercolor{alerted text}{fg=MinimalInk}
+\setbeamercolor{example text}{fg=MinimalInk}
+
+\setbeamerfont{normal text}{family=\rmfamily,size=\fontsize{15}{19}}
+\setbeamerfont{title}{family=\rmfamily,series=\mdseries,size=\fontsize{16.8}{20.3}}
+\setbeamerfont{subtitle}{family=\rmfamily,series=\mdseries,size=\fontsize{15.12}{19.32}}
+\setbeamerfont{author}{family=\rmfamily,size=\fontsize{11.172}{14.364}}
+\setbeamerfont{institute}{family=\rmfamily,size=\fontsize{9.576}{11.97}}
+\setbeamerfont{date}{family=\rmfamily,size=\fontsize{10.08}{13.44}}
+\setbeamerfont{frametitle}{family=\rmfamily,series=\mdseries,size=\fontsize{14.4}{17.55}}
+\setbeamerfont{block title}{family=\rmfamily,series=\bfseries,size=\normalsize}
+\setbeamerfont{page number in head/foot}{family=\rmfamily,size=\scriptsize}
+
+\setbeamersize{text margin left=0.72cm,text margin right=0.72cm}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.42em}
+\setlength{\columnsep}{0.65cm}
+% Keep first- and second-level bullets compact while preserving hierarchy.
+\setlength{\leftmargini}{1.28em}
+\setlength{\leftmarginii}{1.60em}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{headline}{}
+\setbeamertemplate{section in toc}{}
+\setbeamertemplate{subsection in toc}{}
+\setbeamertemplate{blocks}[default]
+\setbeamertemplate{caption}{\raggedright\insertcaption\par}
+\setbeamertemplate{caption label separator}{}
+\renewcommand{\figurename}{}
+\renewcommand{\tablename}{}
+\setbeamertemplate{itemize item}{\raisebox{0.16ex}{\scriptsize$\bullet$}}
+\setbeamertemplate{itemize subitem}{\raisebox{0.12ex}{\tiny$\circ$}}
+\setbeamertemplate{enumerate item}{\insertenumlabel.}
+
+\setbeamertemplate{frametitle}{%
+  \nointerlineskip
+  % Draw the title at the top without consuming vertical frame space. The
+  % body is therefore centered against the whole slide, not the region left
+  % over below the title.
+  \vbox to 0pt{%
+    \vspace*{0.464cm}%
+    \begin{beamercolorbox}[
+      wd=\paperwidth,
+      sep=0.28cm,
+      leftskip=0.44cm,
+      rightskip=0.44cm
+    ]{frametitle}%
+      \usebeamerfont{frametitle}\insertframetitle\strut
+    \end{beamercolorbox}%
+    \vss
+  }%
+}
+
+\setbeamertemplate{footline}{%
+  \leavevmode
+  \hbox{%
+    \begin{beamercolorbox}[wd=\paperwidth,ht=2.5ex,dp=1.15ex,right]{page number in head/foot}%
+      \ifnum\value{framenumber}>0\relax
+        \usebeamerfont{page number in head/foot}\insertframenumber\hspace*{0.65cm}%
+      \fi
+    \end{beamercolorbox}%
+  }%
+}
+
+\makeatletter
+\setbeamertemplate{title page}{%
+  \begin{minipage}[c][0.80\paperheight][c]{\textwidth}
+    \centering
+    {\usebeamerfont{title}\usebeamercolor[fg]{title}\inserttitle\par}
+    \ifx\insertsubtitle\@empty\else
+      \vspace{0.42cm}
+      {\usebeamerfont{subtitle}\usebeamercolor[fg]{subtitle}\insertsubtitle\par}
+    \fi
+    \vspace{1.15cm}
+    \ifx\insertauthor\@empty\else
+      {\usebeamerfont{author}\usebeamercolor[fg]{author}\insertauthor\par}
+    \fi
+    \ifx\insertinstitute\@empty\else
+      \vspace{0.12cm}
+      {\usebeamerfont{institute}\usebeamercolor[fg]{institute}\insertinstitute\par}
+    \fi
+    \ifx\insertdate\@empty\else
+      \vspace{0.32cm}
+      {\usebeamerfont{date}\usebeamercolor[fg]{date}\insertdate\par}
+    \fi
+  \end{minipage}
+  \ifx\inserttitlegraphic\@empty\else
+    \begin{tikzpicture}[remember picture,overlay]
+      \node[anchor=south,inner sep=0pt]
+        at ([yshift=0.85cm]current page.south)
+        {\inserttitlegraphic};
+    \end{tikzpicture}%
+  \fi
+  \addtocounter{framenumber}{-1}%
+}
+\makeatother
+
+\addtobeamertemplate{itemize/enumerate body begin}{\setlength{\itemsep}{0.42em}}{}
+\addtobeamertemplate{itemize/enumerate subbody begin}{\setlength{\itemsep}{0.28em}}{}
+\AtBeginEnvironment{figure}{\renewcommand{\figurename}{}}
+\AtBeginEnvironment{table}{\renewcommand{\tablename}{}}
+
+% Predictable image behavior: fill available width, never distort, and never
+% exceed a comfortable content height unless the Markdown requests it.
+\setkeys{Gin}{width=\linewidth,totalheight=0.72\textheight,keepaspectratio}
+
+% Quiet code treatment. Pandoc supplies syntax colors; this controls fit.
+\AtBeginDocument{%
+  \fvset{breaklines=true,breakanywhere=true,fontsize=\small,commandchars=\\\{\}}
+  % Quarto/Pandoc emits real figure captions. Beamer's default template adds
+  % "Figure" before them; enforce caption text only after all theme setup.
+  \setbeamertemplate{caption}{\raggedright\insertcaption\par}%
+  \setbeamertemplate{caption label separator}{}%
+  \renewcommand{\figurename}{}%
+  \renewcommand{\tablename}{}%
+}
+\AtBeginEnvironment{Shaded}{\small}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=MinimalInk,
+  urlcolor=MinimalLink,
+  citecolor=MinimalInk
+}
+
+% Mark external Markdown links automatically. The arrow is part of the link,
+% so notes need no special syntax and the whole label remains clickable.
+\AtBeginDocument{%
+  \let\MinimalOriginalHref\href
+  \renewcommand{\href}[2]{%
+    \MinimalOriginalHref{#1}{%
+      \textcolor{MinimalLink}{%
+        #2\,\raisebox{0.12ex}{\scriptsize$\nearrow$}%
+      }%
+    }%
+  }%
+}

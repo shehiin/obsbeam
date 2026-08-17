@@ -336,8 +336,71 @@ local function configure(meta)
   source_dir = normalize(source_dir)
 end
 
+local function configure_title_image(document)
+  local configured = document.meta["obsbeam-title-image"]
+  if not configured then return end
+
+  local path = trim(pandoc.utils.stringify(configured))
+  local wiki_target = path:match("^!%[%[(.-)%]%]$")
+  if wiki_target then
+    path = trim(wiki_target:match("^([^|]+)") or wiki_target)
+  end
+  if path == "" then return end
+
+  document.meta.titlegraphic = pandoc.MetaList({
+    pandoc.MetaString(resolve_image(path))
+  })
+  document.meta.titlegraphicoptions = pandoc.MetaList({
+    pandoc.MetaString("width=1.76cm"),
+    pandoc.MetaString("height=1.21cm"),
+    pandoc.MetaString("keepaspectratio")
+  })
+  document.meta["obsbeam-title-image"] = nil
+end
+
+local function superscript_metadata(value)
+  if not value then return value end
+
+  local source = pandoc.utils.stringify(value)
+  if not source:match("%^(%d+)") then return value end
+
+  source = source:gsub("%^(%d+)", "^%1^")
+  local parsed = pandoc.read(source, "markdown+superscript")
+  for _, block in ipairs(parsed.blocks) do
+    if block.t == "Para" or block.t == "Plain" then
+      return pandoc.MetaInlines(block.content)
+    end
+  end
+  return value
+end
+
+local function configure_title_superscripts(document)
+  document.meta.author = superscript_metadata(document.meta.author)
+  document.meta.institute = superscript_metadata(document.meta.institute)
+  document.meta.subtitle = superscript_metadata(document.meta.subtitle)
+end
+
+local function configure_title_date(document)
+  local configured = document.meta["obsbeam-date-text"]
+  if not configured then return end
+
+  local value = trim(pandoc.utils.stringify(configured))
+  document.meta["obsbeam-date-text"] = nil
+  if value == "" then
+    document.meta.date = nil
+    return
+  end
+
+  document.meta.date = pandoc.MetaInlines({
+    pandoc.RawInline("latex", value)
+  })
+end
+
 function Pandoc(document)
   configure(document.meta)
+  configure_title_image(document)
+  configure_title_superscripts(document)
+  configure_title_date(document)
 
   document = document:walk({
     Para = function(block)

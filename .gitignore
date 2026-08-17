@@ -6,5 +6,6 @@ _slides/
 *.toc
 *.out
 *.tex
+!_slide_tools/minimalist-beamer.tex
 *.fls
 *.fdb_latexmk

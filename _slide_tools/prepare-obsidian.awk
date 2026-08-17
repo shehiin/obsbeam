@@ -24,6 +24,60 @@ function nonblank(value, copy) {
   return copy != ""
 }
 
+function trim(value) {
+  gsub(/^[ \t]+|[ \t]+$/, "", value)
+  return value
+}
+
+function expand_superscripts(value, output, i, character, next_index, digits) {
+  output = ""
+  for (i = 1; i <= length(value); i++) {
+    character = substr(value, i, 1)
+    if (character == "^" && substr(value, i + 1, 1) ~ /[0-9]/) {
+      digits = ""
+      next_index = i + 1
+      while (substr(value, next_index, 1) ~ /[0-9]/) {
+        digits = digits substr(value, next_index, 1)
+        next_index++
+      }
+      output = output "^" digits "^"
+      i = next_index - 1
+    } else {
+      output = output character
+    }
+  }
+  return output
+}
+
+function emit_title_metadata() {
+  print "---"
+  print "title: >-"
+  print "  " metadata_title
+  if (metadata_text != "") {
+    print "subtitle: >-"
+    print "  " expand_superscripts(metadata_text)
+  }
+  if (metadata_name != "") {
+    print "author: >-"
+    print "  " expand_superscripts(metadata_name)
+  }
+  if (metadata_affiliation != "") {
+    print "institute: >-"
+    print "  " expand_superscripts(metadata_affiliation)
+  }
+  if (metadata_date != "") {
+    print "obsbeam-date-text: >-"
+    print "  " metadata_date
+  }
+  if (metadata_image != "") {
+    print "obsbeam-title-image: >-"
+    print "  " metadata_image
+  }
+  print "---"
+  print ""
+  simple_metadata = 0
+}
+
 function content_cost(line, plain, width, lines, overhead) {
   plain = line
   gsub(/https?:\/\/[^ )]+/, "link", plain)
@@ -58,6 +112,13 @@ function repeat_current_title() {
   slide_cost = 0
 }
 
+BEGIN {
+  default_title = ARGV[1]
+  gsub(/\\/, "/", default_title)
+  sub(/^.*\//, "", default_title)
+  sub(/\.(md|qmd)$/, "", default_title)
+}
+
 FNR == NR {
   if ($0 ~ /^(```+|~~~+)/) {
     scan_fence = !scan_fence
@@ -75,10 +136,54 @@ FNR == NR {
 
 FNR == 1 {
   in_front_matter = ($0 ~ /^---[ \t]*$/)
-  max_slide_cost = 10.5
+  simple_metadata = !in_front_matter
+  metadata_title = default_title
+  metadata_text = ""
+  metadata_name = ""
+  metadata_affiliation = ""
+  metadata_date = strftime("%b %Y")
+  metadata_image = ""
+  max_slide_cost = 11
 }
 
 {
+  # Ordinary notes get a title page named after the file. Optional simple
+  # fields at the start override the title, author, affiliation, or logo.
+  if (simple_metadata) {
+    if (!nonblank($0)) next
+
+    metadata_separator = index($0, ":")
+    metadata_key = ""
+    if (metadata_separator > 0) {
+      metadata_key = tolower(trim(substr($0, 1, metadata_separator - 1)))
+    }
+
+    if (metadata_key == "title" || metadata_key == "text" ||
+        metadata_key == "name" ||
+        metadata_key == "affiliation" || metadata_key == "institution" ||
+        metadata_key == "date" ||
+        metadata_key == "image") {
+      metadata_value = trim(substr($0, metadata_separator + 1))
+      if (metadata_key == "title" && metadata_value != "") {
+        metadata_title = metadata_value
+      } else if (metadata_key == "text") {
+        metadata_text = metadata_value
+      } else if (metadata_key == "name") {
+        metadata_name = metadata_value
+      } else if (metadata_key == "affiliation" ||
+                 metadata_key == "institution") {
+        metadata_affiliation = metadata_value
+      } else if (metadata_key == "date") {
+        metadata_date = metadata_value
+      } else if (metadata_key == "image") {
+        metadata_image = metadata_value
+      }
+      next
+    }
+
+    emit_title_metadata()
+  }
+
   if ($0 ~ /^(```+|~~~+)/) {
     print
     emit_fence = !emit_fence

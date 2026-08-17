@@ -28,6 +28,21 @@ slide note.md custom-name.pdf
 
 use `slide obs/` and tab to complete note names from the vault.
 
+## title page
+
+the title defaults to the markdown filename. optional fields can be added at the start of the note:
+
+```markdown
+title: presentation title
+text: research presentation
+name: author one^1, author two^2
+affiliation: ^1university one, ^2university two
+date: jul 2025
+image: ![[logo.png]]
+```
+
+`text` adds secondary text. superscript numbers connect authors to affiliations. the date defaults to the export month and year.
+
 ## images
 
 an image beside the note:
