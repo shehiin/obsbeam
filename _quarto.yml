@@ -4,6 +4,8 @@ project:
 
 from: markdown+wikilinks_title_after_pipe+lists_without_preceding_blankline
 
+documentclass: obsbeam
+
 format:
   beamer:
     pdf-engine: lualatex

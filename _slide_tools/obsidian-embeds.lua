@@ -1,4 +1,5 @@
--- Convert Obsidian image embeds to real Pandoc images and resolve their paths.
+-- Convert Obsidian image/media embeds, resolve their paths, and emit native
+-- RichMedia annotations for recent Firefox/PDF.js releases.
 -- Supported examples:
 --   ![[image.png]]
 --   ![[attachments/image.png|full]]
@@ -11,6 +12,19 @@
 local image_extensions = {
   png = true, jpg = true, jpeg = true, pdf = true, svg = true,
   eps = true, tif = true, tiff = true, webp = true
+}
+
+local media_extensions = {
+  mp4 = { subtype = "Video", mime = "video/mp4", ratio = { 9, 16 } },
+  m4v = { subtype = "Video", mime = "video/x-m4v", ratio = { 9, 16 } },
+  webm = { subtype = "Video", mime = "video/webm", ratio = { 9, 16 } },
+  ogv = { subtype = "Video", mime = "video/ogg", ratio = { 9, 16 } },
+  mov = { subtype = "Video", mime = "video/quicktime", ratio = { 9, 16 } },
+  mp3 = { subtype = "Sound", mime = "audio/mpeg", ratio = { 1, 5 } },
+  m4a = { subtype = "Sound", mime = "audio/mp4", ratio = { 1, 5 } },
+  wav = { subtype = "Sound", mime = "audio/wav", ratio = { 1, 5 } },
+  oga = { subtype = "Sound", mime = "audio/ogg", ratio = { 1, 5 } },
+  ogg = { subtype = "Sound", mime = "audio/ogg", ratio = { 1, 5 } }
 }
 
 local vault_root = nil
@@ -66,6 +80,16 @@ local function is_image_path(path)
   return extension and image_extensions[extension:lower()] or false
 end
 
+local function media_type(path)
+  local clean = path:gsub("[?#].*$", "")
+  local extension = clean:match("%.([^./]+)$")
+  return extension and media_extensions[extension:lower()] or nil
+end
+
+local function is_media_path(path)
+  return media_type(path) ~= nil
+end
+
 local function metadata_strings(value)
   local result = {}
   if not value then return result end
@@ -79,7 +103,7 @@ local function metadata_strings(value)
   return result
 end
 
-local function resolve_image(path)
+local function resolve_asset(path)
   path = trim(path)
   if is_remote(path) then return path end
 
@@ -112,10 +136,14 @@ local function resolve_image(path)
   end
 
   error(
-    "Obsidian image not found: " .. path ..
+    "Obsidian asset not found: " .. path ..
     "\nSearched:\n  " .. table.concat(candidates, "\n  ") ..
     "\nMove the file into attachments/ or use an explicit vault-relative path."
   )
+end
+
+local function resolve_image(path)
+  return resolve_asset(path)
 end
 
 local function is_size_hint(value)
@@ -141,6 +169,7 @@ local function parse_size(option)
   local alt = ""
   local size_option = nil
   local caption_option = nil
+  local separate_layout = false
 
   -- Layout hints are consumed by prepare-obsidian.awk. Size and an explicitly
   -- requested caption may coexist, for example:
@@ -149,6 +178,10 @@ local function parse_size(option)
     for token in option:gmatch("[^|]+") do
       local cleaned = trim(token)
       local layout_hint = cleaned:lower()
+      if layout_hint == "new" or layout_hint == "figure" or
+         layout_hint == "separate" then
+        separate_layout = true
+      end
       if layout_hint ~= "same" and layout_hint ~= "inline" and
          layout_hint ~= "left" and layout_hint ~= "right" and
          layout_hint ~= "up" and layout_hint ~= "down" and
@@ -156,8 +189,12 @@ local function parse_size(option)
          layout_hint ~= "separate" then
         if layout_hint:match("^caption%s*=") then
           caption_option = trim(cleaned:match("=%s*(.+)$") or "")
-        elseif is_size_hint(cleaned) and not size_option then
-          size_option = cleaned
+        elseif is_size_hint(cleaned) then
+          -- Layout normalization can prepend its own size (for example,
+          -- `|100%|525`). Every size token is still control metadata, never
+          -- caption text; keep the first size because it is the normalized
+          -- size for the final slide layout.
+          if not size_option then size_option = cleaned end
         elseif not caption_option then
           -- A plain non-size wiki alias is an explicit caption.
           caption_option = cleaned
@@ -166,6 +203,7 @@ local function parse_size(option)
     end
   end
 
+  if not size_option and separate_layout then size_option = "100%" end
   option = size_option
   alt = caption_option or ""
 
@@ -249,8 +287,96 @@ local function parse_standard_alt(option)
   if not placement and not is_size_hint(specification) then return nil end
   if specification ~= "" and not is_size_hint(specification) then return nil end
 
-  local attributes = parse_size(specification ~= "" and specification or nil)
+  local size = specification ~= "" and specification or nil
+  if placement == "new" and not size then size = "100%" end
+  local attributes = parse_size(size)
   return attributes, caption, placement
+end
+
+local function bytes_to_hex(value)
+  return (value:gsub(".", function(character)
+    return string.format("%02X", string.byte(character))
+  end))
+end
+
+local function tex_dimension(value, axis, fallback)
+  value = trim(value or "")
+  if value == "" then return fallback end
+
+  local percent = value:match("^(%d+%.?%d*)%%$")
+  if percent then
+    local fraction = tonumber(percent) / 100
+    local base = axis == "width" and "\\linewidth" or "\\textheight"
+    local formatted = string.format("%.4f", fraction)
+      :gsub("0+$", "")
+      :gsub("%.$", "")
+    return formatted .. base
+  end
+
+  local pixels = value:match("^(%d+%.?%d*)px$")
+  if pixels then
+    return string.format("%.3fbp", tonumber(pixels) * 0.75)
+  end
+
+  if value:match("^%d+%.?%d*(cm|mm|in|em|pt|bp)$") then return value end
+  return fallback
+end
+
+local function build_media(image, is_wikilink)
+  if is_remote(image.src) then
+    error("Remote media cannot be embedded in the PDF: " .. image.src ..
+      "\nDownload it into the vault and embed the local file instead.")
+  end
+
+  local attributes = {}
+  local caption = ""
+  local option = trim(pandoc.utils.stringify(image.caption))
+
+  if is_wikilink then
+    if option == image.src or option == basename(image.src) then option = nil end
+    attributes, caption = parse_size(option)
+  else
+    local control_attributes, control_caption = parse_standard_alt(option)
+    if control_attributes then
+      attributes = control_attributes
+      caption = control_caption
+    else
+      attributes = parse_size(nil)
+      caption = option
+    end
+  end
+
+  for key, value in pairs(image.attributes) do attributes[key] = value end
+
+  local kind = media_type(image.src)
+  local path = resolve_asset(image.src)
+  if path:find("[{}]") then
+    error("Media paths containing braces are not supported: " .. path)
+  end
+
+  local width = tex_dimension(attributes.width, "width", "0.92\\linewidth")
+  local height_fallback = kind.subtype == "Sound" and "1.40cm" or
+    "0.68\\textheight"
+  local height = tex_dimension(attributes.height, "height", height_fallback)
+  local filename = basename(path)
+  local latex = string.format(
+    "\\obsbeammedia{\\detokenize{%s}}{%s}{%s}{%s}{%s}{%d}{%d}{%s}",
+    path,
+    bytes_to_hex(filename),
+    kind.subtype,
+    width,
+    height,
+    kind.ratio[1],
+    kind.ratio[2],
+    kind.mime
+  )
+
+  return pandoc.Span(
+    { pandoc.RawInline("latex", latex) },
+    pandoc.Attr("", { "obsbeam-media" }, {
+      { "data-caption", caption }
+    })
+  )
 end
 
 local function build_image(inner)
@@ -427,6 +553,10 @@ function Pandoc(document)
         end
       end
 
+      if is_media_path(image.src) then
+        return build_media(image, is_wikilink)
+      end
+
       if is_wikilink and is_image_path(image.src) then
         local option = trim(pandoc.utils.stringify(image.caption))
         if option == image.src or option == basename(image.src) then option = nil end
@@ -475,12 +605,22 @@ function Pandoc(document)
       local explicit_obsidian_caption = nil
       local contains_slide_control = false
       local explicit_control_caption = nil
+      local contains_media = false
+      local explicit_media_caption = nil
       local generated_filename_caption = false
       local caption_text = trim(pandoc.utils.stringify(figure.caption)):gsub("%s+", "")
       for _, block in ipairs(figure.content) do
         if block.t == "Para" or block.t == "Plain" then
           for _, inline in ipairs(block.content) do
-            if inline.t == "Image" then
+            if inline.t == "Span" then
+              for _, class in ipairs(inline.classes) do
+                if class == "obsbeam-media" then
+                  contains_media = true
+                  local explicit = trim(inline.attributes["data-caption"] or "")
+                  if explicit ~= "" then explicit_media_caption = explicit end
+                end
+              end
+            elseif inline.t == "Image" then
               for _, class in ipairs(inline.classes) do
                 if class == "obsidian-embed" then
                   contains_obsidian_embed = true
@@ -517,7 +657,15 @@ function Pandoc(document)
         end
       end
 
-      if generated_filename_caption then
+      if contains_media then
+        if explicit_media_caption then
+          figure.caption = pandoc.Caption({
+            pandoc.Plain({ pandoc.Str(explicit_media_caption) })
+          })
+        else
+          figure.caption = pandoc.Caption{}
+        end
+      elseif generated_filename_caption then
         figure.caption = pandoc.Caption{}
       elseif contains_slide_control then
         if explicit_control_caption then

@@ -115,6 +115,7 @@ for required in \
   "$data_root/_quarto.yml" \
   "$data_root/_slide_tools/minimalist-beamer.tex" \
   "$data_root/_slide_tools/obsidian-embeds.lua" \
+  "$data_root/_slide_tools/obsbeam.cls" \
   "$data_root/_slide_tools/prepare-obsidian.awk" \
   "$data_root/_slide_tools/rebalance-orphans.awk" \
   "$data_root/_slide_tools/align-auto-slides.awk"; do
@@ -149,6 +150,7 @@ trap cleanup EXIT INT TERM
 mkdir -p "$stage/_slide_tools" "$vault_root/_slides"
 cp "$data_root/_quarto.yml" "$stage/_quarto.yml"
 cp "$data_root/_slide_tools/"* "$stage/_slide_tools/"
+cp "$data_root/_slide_tools/obsbeam.cls" "$stage/"
 awk -f "$data_root/_slide_tools/prepare-obsidian.awk" "$input" "$input" | \
   awk -f "$data_root/_slide_tools/rebalance-orphans.awk" | \
   awk -f "$data_root/_slide_tools/align-auto-slides.awk" > "$stage/deck.qmd"

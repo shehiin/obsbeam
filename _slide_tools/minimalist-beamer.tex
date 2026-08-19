@@ -53,9 +53,9 @@
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.42em}
 \setlength{\columnsep}{0.65cm}
-% Keep first- and second-level bullets compact while preserving hierarchy.
-\setlength{\leftmargini}{1.28em}
-\setlength{\leftmarginii}{1.60em}
+% Align first-level bullet markers with the body margin and keep nesting tight.
+\setlength{\leftmargini}{0.90em}
+\setlength{\leftmarginii}{1.05em}
 
 \setbeamertemplate{navigation symbols}{}
 \setbeamertemplate{headline}{}
@@ -141,6 +141,98 @@
 % Predictable image behavior: fill available width, never distort, and never
 % exceed a comfortable content height unless the Markdown requests it.
 \setkeys{Gin}{width=\linewidth,totalheight=0.72\textheight,keepaspectratio}
+
+% Embedded audio/video for Firefox's PDF.js media annotation player. The
+% media bytes live inside the PDF; the visible box remains a quiet poster in
+% viewers that do not support RichMedia annotations.
+\makeatletter
+\newcount\obsbeam@mediacount
+\newdimen\obsbeam@mediawidth
+\newdimen\obsbeam@mediaheight
+\newdimen\obsbeam@mediamaxheight
+\newbox\obsbeam@mediaposter
+\newcommand{\obsbeammedia}[8]{%
+  \begingroup
+  \global\advance\obsbeam@mediacount by 1\relax
+  \obsbeam@mediawidth=#4\relax
+  \obsbeam@mediamaxheight=#5\relax
+  \obsbeam@mediaheight=\dimexpr\obsbeam@mediawidth*#6/#7\relax
+  \ifdim\obsbeam@mediaheight>\obsbeam@mediamaxheight
+    \obsbeam@mediaheight=\obsbeam@mediamaxheight
+    \obsbeam@mediawidth=\dimexpr\obsbeam@mediaheight*#7/#6\relax
+  \fi
+  \immediate\pdfextension obj stream
+    attr {/Type /EmbeddedFile /Subtype /\pdf@escapename{#8}}
+    file {#1}%
+  \edef\obsbeam@streamobj{%
+    \the\numexpr\pdffeedback lastobj\relax\space 0 R}%
+  \immediate\pdfextension obj {<<
+    /Type /Filespec
+    /F <#2>
+    /UF <#2>
+    /EF << /F \obsbeam@streamobj /UF \obsbeam@streamobj >>
+  >>}%
+  \edef\obsbeam@filespecobj{%
+    \the\numexpr\pdffeedback lastobj\relax\space 0 R}%
+  \immediate\pdfextension obj {<<
+    /Type /RichMediaInstance
+    /Subtype /#3
+    /Asset \obsbeam@filespecobj
+  >>}%
+  \edef\obsbeam@instanceobj{%
+    \the\numexpr\pdffeedback lastobj\relax\space 0 R}%
+  \immediate\pdfextension obj {<<
+    /Type /RichMediaConfiguration
+    /Subtype /#3
+    /Instances [\obsbeam@instanceobj]
+  >>}%
+  \edef\obsbeam@configobj{%
+    \the\numexpr\pdffeedback lastobj\relax\space 0 R}%
+  \immediate\pdfextension obj {<<
+    /Type /RichMediaContent
+    /Assets << /Names [<#2> \obsbeam@filespecobj] >>
+    /Configurations [\obsbeam@configobj]
+  >>}%
+  \edef\obsbeam@contentobj{%
+    \the\numexpr\pdffeedback lastobj\relax\space 0 R}%
+  \setbox\obsbeam@mediaposter=\hbox{%
+    \begin{tikzpicture}[baseline=(current bounding box.south)]
+      \path[use as bounding box]
+        (0,0) rectangle (\obsbeam@mediawidth,\obsbeam@mediaheight);
+      \fill[MinimalCode]
+        (0,0) rectangle (\obsbeam@mediawidth,\obsbeam@mediaheight);
+      \draw[MinimalRule,line width=0.45pt]
+        (0,0) rectangle (\obsbeam@mediawidth,\obsbeam@mediaheight);
+      \node[
+        circle,
+        fill=white,
+        draw=MinimalRule,
+        minimum size=1.05cm,
+        inner sep=0pt
+      ] at (.5\obsbeam@mediawidth,.5\obsbeam@mediaheight)
+        {\color{MinimalInk}\large$\blacktriangleright$};
+    \end{tikzpicture}%
+  }%
+  \leavevmode\hbox{%
+    \rlap{%
+      \pdfextension annot
+        width \obsbeam@mediawidth
+        height \obsbeam@mediaheight
+        depth 0pt {%
+          /Subtype /RichMedia
+          /F 4
+          /Border [0 0 0]
+          /BS << /W 0 >>
+          /NM (obsbeam-media-\the\obsbeam@mediacount)
+          /Contents <#2>
+          /RichMediaContent \obsbeam@contentobj
+        }%
+    }%
+    \box\obsbeam@mediaposter
+  }%
+  \endgroup
+}
+\makeatother
 
 % Quiet code treatment. Pandoc supplies syntax colors; this controls fit.
 \AtBeginDocument{%

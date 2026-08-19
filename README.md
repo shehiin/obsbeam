@@ -94,6 +94,24 @@ this also works:
 ![left 35%, system architecture](attachments/diagram.png)
 ```
 
+numeric Obsidian widths are treated as sizes, not captions:
+
+```markdown
+![[diagram.png|525]]
+```
+
+## video
+
+embed local video or audio with the same syntax:
+
+```markdown
+![[demo.mp4]]
+![[demo.mp4|new|caption=experiment run]]
+```
+
+the media is stored inside the PDF. inline playback requires Firefox 154 or
+newer; other PDF viewers show the play poster when RichMedia is unsupported.
+
 ## output
 
 `slide lecture.md` creates `_slides/lecture.pdf` inside the vault.

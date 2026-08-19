@@ -63,7 +63,9 @@ function image_percent(line, value) {
     sub(/%$/, "", value)
     return value + 0
   }
-  return 38
+  # Horizontal layouts reserve 4% for column separation. By default the
+  # image gets 44% and the text gets the remaining 52%.
+  return 44
 }
 
 function visual_cost(line, plain, lines) {
@@ -115,7 +117,8 @@ function standard_caption(alt, spec, caption, separator) {
 
   spec = tolower(alt)
   if (spec ~ /^(same|inline|left|right|up|down|new|figure|separate)([ \t:=]|$)/ ||
-      spec ~ /^[0-9]+([.][0-9]+)?%$/) return ""
+      spec ~ /^([0-9]+([.][0-9]+)?(%|px|cm|mm|in|em)?|[0-9]+x[0-9]+|fit|full)$/ ||
+      spec ~ /^(width|w|height|h)[ \t]*=/) return ""
   return alt
 }
 
@@ -144,8 +147,8 @@ function column_image(line, alt, caption, start, rest, close_pos, prefix, suffix
     for (i = 2; i <= count; i++) {
       token = trim(parts[i])
       if (tolower(token) !~ /^(same|inline|left|right|up|down|new|figure|separate)$/ &&
-          token !~ /^[0-9]+([.][0-9]+)?%$/ &&
-          tolower(token) !~ /^(width|w)[ \t]*=/) {
+          tolower(token) !~ /^([0-9]+([.][0-9]+)?(%|px|cm|mm|in|em)?|[0-9]+x[0-9]+|fit|full)$/ &&
+          tolower(token) !~ /^(width|w|height|h)[ \t]*=/) {
         kept = kept "|" token
       }
     }

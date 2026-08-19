@@ -143,7 +143,7 @@ FNR == 1 {
   metadata_affiliation = ""
   metadata_date = strftime("%b %Y")
   metadata_image = ""
-  max_slide_cost = 11
+  max_slide_cost = 12
 }
 
 {
