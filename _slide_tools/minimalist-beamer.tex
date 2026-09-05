@@ -1,8 +1,7 @@
 % Minimalist light Beamer styling for academic and engineering slides.
 % Loaded by _quarto.yml; individual notes do not need raw LaTeX.
 
-\usepackage{fontspec}
-\usepackage{unicode-math}
+\usepackage{sourceserifpro}
 \usepackage{microtype}
 \usepackage{etoolbox}
 \usepackage{graphicx}
@@ -10,11 +9,33 @@
 \usepackage{tikz}
 \usepackage{xcolor}
 
-\defaultfontfeatures{Ligatures=TeX, Scale=MatchLowercase}
-\setmainfont{Libertinus Serif}
-\setsansfont{Libertinus Serif}
-\setmonofont[Scale=0.88]{Libertinus Mono}
-\setmathfont{Libertinus Math}
+% pdfLaTeX compatibility for invisible Obsidian characters and common
+% Unicode mathematics pasted into Markdown equations.
+\DeclareUnicodeCharacter{200B}{}
+\DeclareUnicodeCharacter{00A0}{~}
+\DeclareUnicodeCharacter{03B8}{\ensuremath{\theta}}
+\DeclareUnicodeCharacter{03BB}{\ensuremath{\lambda}}
+\DeclareUnicodeCharacter{03C0}{\ensuremath{\pi}}
+\DeclareUnicodeCharacter{03C3}{\ensuremath{\sigma}}
+\DeclareUnicodeCharacter{03C4}{\ensuremath{\tau}}
+\DeclareUnicodeCharacter{2113}{\ensuremath{\ell}}
+\DeclareUnicodeCharacter{2192}{\ensuremath{\rightarrow}}
+\DeclareUnicodeCharacter{2212}{\ensuremath{-}}
+\DeclareUnicodeCharacter{2223}{\ensuremath{\mid}}
+\DeclareUnicodeCharacter{2264}{\ensuremath{\leq}}
+\DeclareUnicodeCharacter{2265}{\ensuremath{\geq}}
+\DeclareUnicodeCharacter{2026}{\ensuremath{\ldots}}
+
+% Source Serif text with Computer Modern mathematics.
+% Source Serif changes the text family only; the explicit symbol
+% declarations below retain Computer Modern for equations.
+\SetSymbolFont{operators}{normal}{OT1}{cmr}{m}{n}
+\SetSymbolFont{letters}{normal}{OML}{cmm}{m}{it}
+\SetSymbolFont{symbols}{normal}{OMS}{cmsy}{m}{n}
+\SetSymbolFont{largesymbols}{normal}{OMX}{cmex}{m}{n}
+\SetSymbolFont{operators}{bold}{OT1}{cmr}{bx}{n}
+\SetSymbolFont{letters}{bold}{OML}{cmm}{b}{it}
+\SetSymbolFont{symbols}{bold}{OMS}{cmsy}{b}{n}
 \usefonttheme{serif}
 
 \definecolor{MinimalInk}{HTML}{202124}
@@ -39,14 +60,17 @@
 \setbeamercolor{alerted text}{fg=MinimalInk}
 \setbeamercolor{example text}{fg=MinimalInk}
 
-\setbeamerfont{normal text}{family=\rmfamily,size=\fontsize{15}{19}}
-\setbeamerfont{title}{family=\rmfamily,series=\mdseries,size=\fontsize{16.8}{20.3}}
-\setbeamerfont{subtitle}{family=\rmfamily,series=\mdseries,size=\fontsize{15.12}{19.32}}
-\setbeamerfont{author}{family=\rmfamily,size=\fontsize{11.172}{14.364}}
-\setbeamerfont{institute}{family=\rmfamily,size=\fontsize{9.576}{11.97}}
-\setbeamerfont{date}{family=\rmfamily,size=\fontsize{10.08}{13.44}}
-\setbeamerfont{frametitle}{family=\rmfamily,series=\mdseries,size=\fontsize{14.4}{17.55}}
+\setbeamerfont{normal text}{family=\rmfamily,size=\fontsize{8.6}{12}}
+\setbeamerfont{itemize/enumerate body}{parent=normal text}
+\setbeamerfont{itemize/enumerate subbody}{parent=normal text}
+\setbeamerfont{title}{family=\rmfamily,series=\mdseries,size=\fontsize{15}{18}}
+\setbeamerfont{subtitle}{family=\rmfamily,series=\mdseries,size=\fontsize{11}{13.5}}
+\setbeamerfont{author}{family=\rmfamily,size=\fontsize{9.5}{12}}
+\setbeamerfont{institute}{family=\rmfamily,size=\fontsize{8.5}{11}}
+\setbeamerfont{date}{family=\rmfamily,size=\fontsize{8.5}{10.5}}
+\setbeamerfont{frametitle}{family=\rmfamily,series=\mdseries,size=\fontsize{13.5}{16.5}}
 \setbeamerfont{block title}{family=\rmfamily,series=\bfseries,size=\normalsize}
+\setbeamerfont{caption}{family=\rmfamily,series=\mdseries,size=\fontsize{6.5}{8}}
 \setbeamerfont{page number in head/foot}{family=\rmfamily,size=\scriptsize}
 
 \setbeamersize{text margin left=0.72cm,text margin right=0.72cm}
@@ -59,6 +83,7 @@
 
 \setbeamertemplate{navigation symbols}{}
 \setbeamertemplate{headline}{}
+\setbeamertemplate{frametitle continuation}{}
 \setbeamertemplate{section in toc}{}
 \setbeamertemplate{subsection in toc}{}
 \setbeamertemplate{blocks}[default]
@@ -101,40 +126,115 @@
 }
 
 \makeatletter
-\setbeamertemplate{title page}{%
-  \begin{minipage}[c][0.80\paperheight][c]{\textwidth}
-    \centering
-    {\usebeamerfont{title}\usebeamercolor[fg]{title}\inserttitle\par}
-    \ifx\insertsubtitle\@empty\else
-      \vspace{0.42cm}
-      {\usebeamerfont{subtitle}\usebeamercolor[fg]{subtitle}\insertsubtitle\par}
-    \fi
-    \vspace{1.15cm}
+\newcommand{\obsbeambodyspacing}{%
+  \fontsize{8.6}{12}\selectfont%
+  \setlength{\parskip}{0.38em}%
+  \renewcommand{\arraystretch}{1.07}%
+  \setlength{\abovedisplayskip}{0.57em}%
+  \setlength{\belowdisplayskip}{0.57em}%
+  \setlength{\abovedisplayshortskip}{0.28em}%
+  \setlength{\belowdisplayshortskip}{0.38em}%
+}
+\newcommand{\obsbeamtightlist}{%
+  \ifnum\@itemdepth>1\relax
+    \setlength{\itemsep}{0.09em}%
+    \setlength{\parskip}{0pt}%
+    \setlength{\parsep}{0pt}%
+  \else
+    \setlength{\itemsep}{0.17em}%
+    \setlength{\parskip}{0pt}%
+    \setlength{\parsep}{0pt}%
+  \fi
+}
+% Equal stretch plus a small fixed-bound difference places the visible body
+% 0.25cm below the mathematical page center for a gentler optical balance.
+\define@key{beamerframe}{s}[true]{%
+  \beamer@frametopskip=1.50cm plus 1fill\relax%
+  \beamer@framebottomskip=1.00cm plus 1fill\relax%
+  \beamer@frametopskipautobreak=\beamer@frametopskip\relax%
+  \beamer@framebottomskipautobreak=\beamer@framebottomskip\relax%
+  \obsbeambodyspacing%
+}
+% Media frames use the same fixed safe area, but figures and column layouts
+% are indivisible in Beamer and must not trigger an empty continuation page.
+\define@key{beamerframe}{m}[true]{%
+  \beamer@frametopskip=1.40cm plus 1fill\relax%
+  \beamer@framebottomskip=1.10cm plus 1fill\relax%
+  \beamer@frametopskipautobreak=\beamer@frametopskip\relax%
+  \beamer@framebottomskipautobreak=\beamer@framebottomskip\relax%
+  \obsbeambodyspacing%
+}
+\newlength{\obsbeam@titleoffset}
+\newlength{\obsbeam@titlegap}
+\newcommand{\obsbeam@authorblock}{%
+  \ifx\insertauthor\@empty\else
+    {\usebeamerfont{author}\usebeamercolor[fg]{author}\insertauthor\par}%
+  \fi
+  \ifx\insertinstitute\@empty\else
+    \vspace{0.12cm}%
+    {\usebeamerfont{institute}\usebeamercolor[fg]{institute}\insertinstitute\par}%
+  \fi
+  \ifx\insertdate\@empty\else
+    \vspace{0.18cm}%
+    {\usebeamerfont{date}\usebeamercolor[fg]{date}\insertdate\par}%
+  \fi
+}
+\newcommand{\obsbeam@authorstack}{%
+  \begin{tabular}{@{}c@{}}
     \ifx\insertauthor\@empty\else
-      {\usebeamerfont{author}\usebeamercolor[fg]{author}\insertauthor\par}
+      {\usebeamerfont{author}\usebeamercolor[fg]{author}\insertauthor}%
     \fi
     \ifx\insertinstitute\@empty\else
-      \vspace{0.12cm}
-      {\usebeamerfont{institute}\usebeamercolor[fg]{institute}\insertinstitute\par}
+      \\[0.12cm]
+      {\usebeamerfont{institute}\usebeamercolor[fg]{institute}\insertinstitute}%
     \fi
     \ifx\insertdate\@empty\else
-      \vspace{0.32cm}
-      {\usebeamerfont{date}\usebeamercolor[fg]{date}\insertdate\par}
+      \\[0.18cm]
+      {\usebeamerfont{date}\usebeamercolor[fg]{date}\insertdate}%
+    \fi
+  \end{tabular}%
+}
+\setbeamertemplate{title page}{%
+  \setlength{\obsbeam@titleoffset}{1.60cm}%
+  \setlength{\obsbeam@titlegap}{1.15cm}%
+  \begin{minipage}[c][0.76\paperheight][t]{\textwidth}
+    \centering
+    \vspace*{\obsbeam@titleoffset}
+    \begin{minipage}{0.72\textwidth}
+      \centering
+      {\usebeamerfont{title}\usebeamercolor[fg]{title}\inserttitle\par}
+    \end{minipage}\par
+    \ifx\insertsubtitle\@empty\else
+      \vspace{\obsbeam@titlegap}
+      {\usebeamerfont{subtitle}\usebeamercolor[fg]{subtitle}\insertsubtitle\par}
+    \fi
+    \vspace{\obsbeam@titlegap}
+    \ifx\inserttitlegraphic\@empty
+      \obsbeam@authorblock
+    \else
+      \makebox[\textwidth][c]{%
+        \obsbeam@authorstack
+        \hspace{0.253cm}%
+        \raisebox{\dimexpr-.5\height+0.22cm\relax}{\inserttitlegraphic}%
+      }%
     \fi
   \end{minipage}
-  \ifx\inserttitlegraphic\@empty\else
-    \begin{tikzpicture}[remember picture,overlay]
-      \node[anchor=south,inner sep=0pt]
-        at ([yshift=0.85cm]current page.south)
-        {\inserttitlegraphic};
-    \end{tikzpicture}%
-  \fi
   \addtocounter{framenumber}{-1}%
 }
 \makeatother
 
-\addtobeamertemplate{itemize/enumerate body begin}{\setlength{\itemsep}{0.42em}}{}
-\addtobeamertemplate{itemize/enumerate subbody begin}{\setlength{\itemsep}{0.28em}}{}
+\addtobeamertemplate{itemize/enumerate body begin}{%
+  \setlength{\baselineskip}{14.5pt}% wrapped lines within one item
+  \setlength{\itemsep}{0.17em}%
+  \setlength{\topsep}{0.38em}%
+  \setlength{\parsep}{0.38em}%
+}{}
+\addtobeamertemplate{itemize/enumerate subbody begin}{%
+  \setlength{\baselineskip}{14.5pt}% wrapped lines within one nested item
+  \setlength{\itemsep}{0.09em}%
+  \setlength{\topsep}{0.24em}%
+  \setlength{\parsep}{0.24em}%
+}{}
 \AtBeginEnvironment{figure}{\renewcommand{\figurename}{}}
 \AtBeginEnvironment{table}{\renewcommand{\tablename}{}}
 
@@ -236,7 +336,9 @@
 
 % Quiet code treatment. Pandoc supplies syntax colors; this controls fit.
 \AtBeginDocument{%
-  \fvset{breaklines=true,breakanywhere=true,fontsize=\small,commandchars=\\\{\}}
+  \providecommand{\tightlist}{}%
+  \renewcommand{\tightlist}{\obsbeamtightlist}%
+  \fvset{breaklines=true,breakanywhere=true,fontsize=\small,baselinestretch=1.5,commandchars=\\\{\}}
   % Quarto/Pandoc emits real figure captions. Beamer's default template adds
   % "Figure" before them; enforce caption text only after all theme setup.
   \setbeamertemplate{caption}{\raggedright\insertcaption\par}%

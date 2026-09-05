@@ -8,7 +8,7 @@ install quarto from `https://quarto.org/docs/get-started/`.
 
 ```bash
 sudo apt update
-sudo apt install bash-completion texlive-luatex texlive-latex-extra texlive-fonts-extra
+sudo apt install bash-completion texlive-latex-extra texlive-fonts-extra
 ```
 
 ## install
@@ -45,59 +45,53 @@ image: ![[logo.png]]
 
 ## images
 
-an image beside the note:
+use one syntax for image layout:
+
+```markdown
+![right 40%](diagram.png)
+```
+
+the form is `![position size, optional caption](file)`:
+
+```markdown
+![left 35%](diagram.png)
+![right 40%, system architecture](diagram.png)
+![new 100%, full-slide diagram](diagram.png)
+```
+
+available positions are `left`, `right`, `up`, `down`, `topleft`,
+`topright`, `bottomleft`, `bottomright`, `grid`, and `new`.
+
+paths may be relative to the note or use a common vault folder:
+
+```markdown
+![right 40%](attachments/diagram.png)
+![right 40%](assets/diagram.png)
+![right 40%](images/diagram.png)
+```
+
+pasted Obsidian embeds still render, but they are not a second layout syntax:
 
 ```markdown
 ![[diagram.png]]
-```
-
-images in common vault folders:
-
-```markdown
-![[attachments/diagram.png]]
-![[assets/diagram.png]]
-![[images/diagram.png]]
-```
-
-set the size with a percentage:
-
-```markdown
-![[diagram.png|40%]]
-```
-
-choose where the image sits on the current slide:
-
-```markdown
-![[diagram.png|left|35%]]
-![[diagram.png|right|35%]]
-![[diagram.png|up|50%]]
-![[diagram.png|down|50%]]
-```
-
-without a position, the image stays on the current slide at the right. use `new` for another slide:
-
-```markdown
-![[diagram.png|new|75%]]
-```
-
-add a caption:
-
-```markdown
-![[diagram.png|caption=system architecture]]
-![[diagram.png|left|35%|caption=system architecture]]
-```
-
-this also works:
-
-```markdown
-![left 35%](attachments/diagram.png)
-![left 35%, system architecture](attachments/diagram.png)
-```
-
-numeric Obsidian widths are treated as sizes, not captions:
-
-```markdown
 ![[diagram.png|525]]
+```
+
+Obsidian's numeric width is treated as resize metadata, not a caption.
+
+stack two images on one side:
+
+```markdown
+![topright 44%, upper image](diagram-one.png)
+![bottomright 44%, lower image](diagram-two.png)
+```
+
+place three images in a row:
+
+```markdown
+![grid 31%, first](one.png)
+![grid 31%, second](two.png)
+![grid 31%, third](three.png)
 ```
 
 ## video
@@ -105,8 +99,8 @@ numeric Obsidian widths are treated as sizes, not captions:
 embed local video or audio with the same syntax:
 
 ```markdown
-![[demo.mp4]]
-![[demo.mp4|new|caption=experiment run]]
+![right 40%](demo.mp4)
+![new 80%, experiment run](demo.mp4)
 ```
 
 the media is stored inside the PDF. inline playback requires Firefox 154 or

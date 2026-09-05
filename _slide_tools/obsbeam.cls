@@ -6,5 +6,8 @@
 \ifdefined\pdfvariable
   \pdfvariable minorversion=7\relax
 \fi
+\ifdefined\pdfminorversion
+  \pdfminorversion=7\relax
+\fi
 
 \LoadClassWithOptions{beamer}

@@ -78,13 +78,24 @@ function emit_title_metadata() {
   simple_metadata = 0
 }
 
-function content_cost(line, plain, width, lines, overhead) {
+function content_cost(line, plain, width, lines, overhead,
+                      explicit_rows, row_scan, row_break) {
   plain = line
   gsub(/https?:\/\/[^ )]+/, "link", plain)
   gsub(/[*_`]/, "", plain)
   width = 82
   lines = int((length(plain) + width - 1) / width)
   if (lines < 1) lines = 1
+
+  # Inline LaTeX matrices remain on one Markdown source line, but every `\\`
+  # creates another rendered row and therefore consumes real vertical space.
+  explicit_rows = 0
+  row_scan = line
+  while ((row_break = index(row_scan, "\\\\")) > 0) {
+    explicit_rows++
+    row_scan = substr(row_scan, row_break + 2)
+  }
+  lines += explicit_rows
 
   overhead = 0
   if (line ~ /^[-+*][ \t]+/ || line ~ /^[0-9]+[.)][ \t]+/) {
@@ -109,7 +120,16 @@ function repeat_current_title() {
   print ""
   section_has_content = 0
   after_figure = 0
-  slide_cost = 0
+  slide_cost = frame_margin_cost
+}
+
+function start_headingless_note() {
+  current_title = metadata_title
+  print "## " current_title " {.auto-note}"
+  print ""
+  section_has_content = 0
+  after_figure = 0
+  slide_cost = frame_margin_cost
 }
 
 BEGIN {
@@ -139,11 +159,12 @@ FNR == 1 {
   simple_metadata = !in_front_matter
   metadata_title = default_title
   metadata_text = ""
-  metadata_name = ""
+  metadata_name = "Shehin"
   metadata_affiliation = ""
   metadata_date = strftime("%b %Y")
   metadata_image = ""
-  max_slide_cost = 12
+  max_slide_cost = 18
+  frame_margin_cost = 1
 }
 
 {
@@ -159,7 +180,7 @@ FNR == 1 {
     }
 
     if (metadata_key == "title" || metadata_key == "text" ||
-        metadata_key == "name" ||
+        metadata_key == "name" || metadata_key == "author" ||
         metadata_key == "affiliation" || metadata_key == "institution" ||
         metadata_key == "date" ||
         metadata_key == "image") {
@@ -168,7 +189,7 @@ FNR == 1 {
         metadata_title = metadata_value
       } else if (metadata_key == "text") {
         metadata_text = metadata_value
-      } else if (metadata_key == "name") {
+      } else if (metadata_key == "name" || metadata_key == "author") {
         metadata_name = metadata_value
       } else if (metadata_key == "affiliation" ||
                  metadata_key == "institution") {
@@ -182,6 +203,14 @@ FNR == 1 {
     }
 
     emit_title_metadata()
+  }
+
+  # A headingless note would otherwise become one unbreakable Beamer frame.
+  # Give it an automatic section named after the note so long content uses the
+  # same threshold-based pagination as ordinary headed Obsidian notes.
+  if (!in_front_matter && top_level == 0 && current_title == "" &&
+      nonblank($0)) {
+    start_headingless_note()
   }
 
   if ($0 ~ /^(```+|~~~+)/) {
@@ -230,27 +259,54 @@ FNR == 1 {
       }
       section_has_content = 0
       after_figure = 0
-      slide_cost = 0
+      slide_cost = frame_margin_cost
     }
   }
 
-  # Images stay with the current auto-promoted slide by default. Only an
-  # explicit `new`/`figure`/`separate` control starts an image slide. The
-  # following alignment pass arranges same-slide images at left/right/up/down.
-  if (top_level > 2 && current_title != "" && level == 0) {
+  # One image-control grammar is supported:
+  #   ![position 40%, optional caption](image.png)
+  # An explicit position is authoritative and stays on the current slide.
+  # Only `new` starts another slide.
+  if ((top_level == 0 || top_level > 2) &&
+      current_title != "" && level == 0) {
     image_start = match($0, /!\[[^]]*\]\([^)]*\)|!\[\[[^]]+\]\]/)
     if (image_start > 0) {
       before_image = substr($0, 1, RSTART - 1)
       image_markdown = substr($0, RSTART, RLENGTH)
       after_image_text = substr($0, RSTART + RLENGTH)
       standard_image_control = tolower(image_markdown)
+      gsub(/[ \t]*\|[ \t]*[0-9]+(x[0-9]+)?[ \t]*\]\(/,
+           "](", standard_image_control)
       new_frame = \
-        (tolower(image_markdown) ~ /\|(new|figure|separate)(\||\]\])/) || \
-        (standard_image_control ~ /^!\[(new|figure|separate)([ :=|][^]]*)?\]\(/) || \
-        ($0 ~ /\{[^}]*\.(new-slide|figure-slide|separate-slide)[^}]*\}/)
+        (standard_image_control ~ /^!\[new[ \t]+[0-9]+([.][0-9]+)?%([ \t]*,[^]]*)?\]\(/)
       same_frame = !new_frame
 
       if (same_frame) {
+        explicit_position = \
+          (standard_image_control ~ /^!\[(left|right|up|down|topleft|topright|bottomleft|bottomright|grid)[ \t]+[0-9]+([.][0-9]+)?%([ \t]*,[^]]*)?\]\(/)
+        # Same-slide images still obey the ordinary frame budget. Previously
+        # this path added the image after pagination without checking the
+        # existing text, allowing a tall mixed frame to enter the title area.
+        corner_image = \
+          (standard_image_control ~ /^!\[(topright|topleft|bottomright|bottomleft)[ \t]+[0-9]+([.][0-9]+)?%([ \t]*,[^]]*)?\]\(/)
+        grid_image = \
+          (standard_image_control ~ /^!\[grid[ \t]+[0-9]+([.][0-9]+)?%([ \t]*,[^]]*)?\]\(/)
+        # Two corner images share one side column, so each consumes half of
+        # the normal image budget. This keeps the pair together for layout.
+        image_block_cost = grid_image ? 2.3 : (corner_image ? 3.5 : 7)
+        if (nonblank(before_image)) {
+          image_block_cost += content_cost(before_image)
+        }
+        if (nonblank(after_image_text) &&
+            after_image_text !~ /^[ \t]*\{[^}]*\}[ \t]*$/) {
+          image_block_cost += content_cost(after_image_text)
+        }
+
+        if (!explicit_position && section_has_content &&
+            slide_cost + image_block_cost > max_slide_cost) {
+          repeat_current_title()
+        }
+
         if (after_figure) {
           repeat_current_title()
         }
@@ -266,7 +322,7 @@ FNR == 1 {
         print ""
         if (nonblank(after_image_text)) print after_image_text
         section_has_content = 1
-        slide_cost += 7
+        slide_cost += image_block_cost
         next
       }
 
@@ -291,7 +347,7 @@ FNR == 1 {
       print image_markdown
       if (nonblank(after_image_text)) print after_image_text
       section_has_content = 1
-      slide_cost = 7
+      slide_cost = 7 + frame_margin_cost
       after_figure = 1
       next
     }

@@ -8,7 +8,7 @@ documentclass: obsbeam
 
 format:
   beamer:
-    pdf-engine: lualatex
+    pdf-engine: pdflatex
     aspectratio: 169
     classoption:
       - c

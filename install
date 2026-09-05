@@ -21,4 +21,4 @@ install -m 0644 "$repo_root/completions/slide.bash" "$completion_root/slide"
 printf '%s\n' "$vault_root" > "$config_root/vault"
 
 printf 'installed obsbeam for %s\n' "$vault_root"
-printf 'open a new terminal, then run: slide note.md\n'
+printf 'run: slide note.md\n'

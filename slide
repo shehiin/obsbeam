@@ -130,8 +130,8 @@ quarto_bin="${QUARTO_BIN:-$(command -v quarto || true)}"
   printf 'error: quarto is not installed.\n' >&2
   exit 1
 }
-command -v lualatex >/dev/null || {
-  printf 'error: lualatex is not installed.\n' >&2
+command -v pdflatex >/dev/null || {
+  printf 'error: pdflatex is not installed.\n' >&2
   exit 1
 }
 
@@ -159,7 +159,7 @@ ln -s "$vault_root" "$stage/vault"
 relative_input=${input#"$vault_root"/}
 relative_source_dir=$(dirname "$relative_input")
 
-printf 'rendering %s with lualatex...\n' "$relative_input"
+printf 'rendering %s with pdflatex...\n' "$relative_input"
 (
   cd "$stage"
   OBSIDIAN_VAULT_ROOT=vault \

@@ -146,22 +146,37 @@ local function resolve_image(path)
   return resolve_asset(path)
 end
 
+local function normalize_pdflatex_unicode(document)
+  return document:walk({
+    Str = function(inline)
+      inline.text = inline.text:gsub("​", "")
+      return inline
+    end,
+    Math = function(math)
+      local value = math.text:gsub("​", "")
+      value = value:gsub("π", "\\pi ")
+      value = value:gsub("θ", "\\theta ")
+      value = value:gsub("λ", "\\lambda ")
+      value = value:gsub("σ", "\\sigma ")
+      value = value:gsub("τ", "\\tau ")
+      value = value:gsub("ℓ", "\\ell ")
+      value = value:gsub("∣", "\\mid ")
+      value = value:gsub("−", "-")
+      value = value:gsub("…", "\\ldots ")
+      value = value:gsub("≤", "\\leq ")
+      value = value:gsub("≥", "\\geq ")
+      value = value:gsub("→", "\\rightarrow ")
+      math.text = value
+      return math
+    end
+  })
+end
+
 local function is_size_hint(value)
   local lower = value:lower()
-  return lower == "full" or
-         lower == "fit" or
-         lower:match("^%d+$") ~= nil or
+  return lower:match("^%d+$") ~= nil or
          lower:match("^%d+%.?%d*%%$") ~= nil or
-         lower:match("^%d+%.?%d*px$") ~= nil or
-         lower:match("^%d+%.?%d*cm$") ~= nil or
-         lower:match("^%d+%.?%d*mm$") ~= nil or
-         lower:match("^%d+%.?%d*in$") ~= nil or
-         lower:match("^%d+%.?%d*em$") ~= nil or
-         lower:match("^%d+x%d+$") ~= nil or
-         lower:match("^width%s*=") ~= nil or
-         lower:match("^w%s*=") ~= nil or
-         lower:match("^height%s*=") ~= nil or
-         lower:match("^h%s*=") ~= nil
+         lower:match("^%d+[xX]%d*$") ~= nil
 end
 
 local function parse_size(option)
@@ -169,41 +184,19 @@ local function parse_size(option)
   local alt = ""
   local size_option = nil
   local caption_option = nil
-  local separate_layout = false
-
-  -- Layout hints are consumed by prepare-obsidian.awk. Size and an explicitly
-  -- requested caption may coexist, for example:
-  -- `|60%|same|caption=Training overview`.
+  -- Wiki embeds remain supported for pasted Obsidian images and Obsidian's
+  -- numeric resize metadata. Layout controls use standard Markdown only.
   if option and option ~= "" then
     for token in option:gmatch("[^|]+") do
       local cleaned = trim(token)
-      local layout_hint = cleaned:lower()
-      if layout_hint == "new" or layout_hint == "figure" or
-         layout_hint == "separate" then
-        separate_layout = true
-      end
-      if layout_hint ~= "same" and layout_hint ~= "inline" and
-         layout_hint ~= "left" and layout_hint ~= "right" and
-         layout_hint ~= "up" and layout_hint ~= "down" and
-         layout_hint ~= "new" and layout_hint ~= "figure" and
-         layout_hint ~= "separate" then
-        if layout_hint:match("^caption%s*=") then
-          caption_option = trim(cleaned:match("=%s*(.+)$") or "")
-        elseif is_size_hint(cleaned) then
-          -- Layout normalization can prepend its own size (for example,
-          -- `|100%|525`). Every size token is still control metadata, never
-          -- caption text; keep the first size because it is the normalized
-          -- size for the final slide layout.
-          if not size_option then size_option = cleaned end
-        elseif not caption_option then
-          -- A plain non-size wiki alias is an explicit caption.
-          caption_option = cleaned
-        end
+      if is_size_hint(cleaned) then
+        if not size_option then size_option = cleaned end
+      elseif not caption_option then
+        caption_option = cleaned
       end
     end
   end
 
-  if not size_option and separate_layout then size_option = "100%" end
   option = size_option
   alt = caption_option or ""
 
@@ -255,40 +248,37 @@ local function parse_standard_alt(option)
   option = trim(option or "")
   if option == "" then return nil end
 
-  local specification, caption = option:match("^(.-)%s*|%s*(.+)$")
-  if not specification then
-    specification, caption = option:match("^(.-)%s*,%s*(.+)$")
-  end
-  if not specification then specification = option end
-  specification = trim(specification)
-  caption = caption and trim(caption) or ""
-
-  -- A trailing Obsidian pipe value such as `|410` is legacy sizing metadata,
-  -- not a requested caption. Captions remain opt-in descriptive text.
-  if caption ~= "" and is_size_hint(caption) then caption = "" end
-
-  local placement = nil
-  local keyword, remainder = specification:match("^([%a]+)%s*[:=]?%s*(.-)$")
-  if keyword then
-    keyword = keyword:lower()
-    if keyword == "same" or keyword == "inline" then
-      placement = "right"
-      specification = trim(remainder)
-    elseif keyword == "left" or keyword == "right" or
-           keyword == "up" or keyword == "down" then
-      placement = keyword
-      specification = trim(remainder)
-    elseif keyword == "new" or keyword == "figure" or keyword == "separate" then
-      placement = "new"
-      specification = trim(remainder)
-    end
+  local caption = ""
+  local spec = option
+  local before_comma, after_comma = option:match("^(.-)%s*,%s*(.*)$")
+  if before_comma then
+    spec = trim(before_comma)
+    caption = trim(after_comma)
   end
 
-  if not placement and not is_size_hint(specification) then return nil end
-  if specification ~= "" and not is_size_hint(specification) then return nil end
+  -- Obsidian may append its visual width after the layout specification:
+  -- `right 40% |370`. It is editor metadata, not part of the public syntax.
+  spec = trim(spec:gsub("%s*|%s*%d+[xX]%d+%s*$", "")
+                  :gsub("%s*|%s*%d+%s*$", ""))
 
-  local size = specification ~= "" and specification or nil
-  if placement == "new" and not size then size = "100%" end
+  -- Obsidian may append its visual image width to the alt text, for example
+  -- `Figure: Setup|429`. Keep that metadata in the note, but never print it
+  -- as part of the PDF caption.
+  caption = trim(caption:gsub("%s*|%s*%d+[xX]%d+%s*$", "")
+                        :gsub("%s*|%s*%d+%s*$", ""))
+
+  -- One public layout grammar only:
+  --   ![position 40%, optional caption](image.png)
+  local placement, size = spec:match("^([%a]+)%s+(%d+%.?%d*%%)$")
+  placement = placement and placement:lower() or nil
+  local valid = {
+    left = true, right = true, up = true, down = true,
+    topleft = true, topright = true,
+    bottomleft = true, bottomright = true,
+    grid = true, new = true
+  }
+  if not placement or not valid[placement] then return nil end
+
   local attributes = parse_size(size)
   return attributes, caption, placement
 end
@@ -477,8 +467,8 @@ local function configure_title_image(document)
     pandoc.MetaString(resolve_image(path))
   })
   document.meta.titlegraphicoptions = pandoc.MetaList({
-    pandoc.MetaString("width=1.76cm"),
-    pandoc.MetaString("height=1.21cm"),
+    pandoc.MetaString("width=1.94cm"),
+    pandoc.MetaString("height=1.33cm"),
     pandoc.MetaString("keepaspectratio")
   })
   document.meta["obsbeam-title-image"] = nil
@@ -522,11 +512,45 @@ local function configure_title_date(document)
   })
 end
 
+local function compile_tikz_block(block)
+  local is_tikz = false
+  for _, class in ipairs(block.classes or {}) do
+    if class:lower() == "tikz" then
+      is_tikz = true
+      break
+    end
+  end
+  if not is_tikz then return nil end
+
+  local kept = {}
+  for line in (block.text .. "\n"):gmatch("(.-)\n") do
+    local stripped = trim(line)
+    -- Obsidian TikZ plugins commonly expect a complete standalone document.
+    -- Beamer already loads TikZ, so document-level wrapper commands must not
+    -- be emitted inside a frame.
+    if not stripped:match("^\\documentclass") and
+       not stripped:match("^\\usepackage%s*[%[{]") and
+       stripped ~= "\\begin{document}" and
+       stripped ~= "\\end{document}" then
+      table.insert(kept, line)
+    end
+  end
+
+  local tikz = trim(table.concat(kept, "\n"))
+  if tikz == "" then return {} end
+  return pandoc.RawBlock("latex",
+    "\\begin{center}\n" .. tikz .. "\n\\end{center}")
+end
+
 function Pandoc(document)
   configure(document.meta)
   configure_title_image(document)
   configure_title_superscripts(document)
   configure_title_date(document)
+
+  document = document:walk({ CodeBlock = compile_tikz_block })
+
+  document = normalize_pdflatex_unicode(document)
 
   document = document:walk({
     Para = function(block)
