@@ -45,53 +45,37 @@ image: ![[logo.png]]
 
 ## images
 
-use one syntax for image layout:
+use:
 
 ```markdown
-![right 40%](diagram.png)
+![position size](file.jpg)
 ```
 
-the form is `![position size, optional caption](file)`:
+examples:
 
 ```markdown
-![left 35%](diagram.png)
-![right 40%, system architecture](diagram.png)
-![new 100%, full-slide diagram](diagram.png)
+![right 40%](diagram.jpg)
+![left 35%, system architecture](diagram.jpg)
+![new 100%, full-slide diagram](diagram.jpg)
 ```
 
-available positions are `left`, `right`, `up`, `down`, `topleft`,
-`topright`, `bottomleft`, `bottomright`, `grid`, and `new`.
+the caption is optional and follows a comma. `new` places the image on a new
+slide. other positions keep it on the current slide.
 
-paths may be relative to the note or use a common vault folder:
+positions: `left`, `right`, `up`, `down`, `topleft`, `topright`, `bottomleft`,
+`bottomright`, `grid`, `new`.
+
+use a relative path when the image is in an assets folder:
 
 ```markdown
-![right 40%](attachments/diagram.png)
-![right 40%](assets/diagram.png)
-![right 40%](images/diagram.png)
+![right 40%](assets/diagram.jpg)
 ```
 
-pasted Obsidian embeds still render, but they are not a second layout syntax:
+pasted Obsidian images also render. Obsidian's number is treated only as editor
+resize metadata and is not printed as a caption:
 
 ```markdown
-![[diagram.png]]
-![[diagram.png|525]]
-```
-
-Obsidian's numeric width is treated as resize metadata, not a caption.
-
-stack two images on one side:
-
-```markdown
-![topright 44%, upper image](diagram-one.png)
-![bottomright 44%, lower image](diagram-two.png)
-```
-
-place three images in a row:
-
-```markdown
-![grid 31%, first](one.png)
-![grid 31%, second](two.png)
-![grid 31%, third](three.png)
+![[diagram.jpg|525]]
 ```
 
 ## video
@@ -108,4 +92,4 @@ newer; other PDF viewers show the play poster when RichMedia is unsupported.
 
 ## output
 
-`slide lecture.md` creates `_slides/lecture.pdf` inside the vault.
+`slide lecture.md` creates `slides/lecture.pdf` inside the vault.
