@@ -35,13 +35,10 @@ the title defaults to the markdown filename. optional fields can be added at the
 ```markdown
 title: presentation title
 text: research presentation
-name: author one^1, author two^2
-affiliation: ^1university one, ^2university two
-date: jul 2025
-image: ![[logo.png]]
+name: author
 ```
 
-`text` adds secondary text. superscript numbers connect authors to affiliations. the date defaults to the export month and year.
+`text` adds secondary text.
 
 ## images
 
@@ -69,13 +66,6 @@ use a relative path when the image is in an assets folder:
 
 ```markdown
 ![right 40%](assets/diagram.jpg)
-```
-
-pasted Obsidian images also render. Obsidian's number is treated only as editor
-resize metadata and is not printed as a caption:
-
-```markdown
-![[diagram.jpg|525]]
 ```
 
 ## video
